@@ -5,25 +5,27 @@ from tkinter import *
 from tkinter import ttk
 from tkinter import filedialog
 from pdf2image import convert_from_path
-from fpdf import FPDF
+#from fpdf import FPDF
 import json
-import glob
-import cv2
-import pytesseract
-from PIL import Image
+#import glob
+#from PIL import Image
 import hashlib
-from PyPDF2 import PdfWriter, PdfReader
+#from PyPDF2 import PdfWriter, PdfReader
 import qrcode
-from reportlab.lib.pagesizes import letter
+#from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 import PyPDF2
+from datetime import datetime
+from PIL import Image, ImageTk
+from tkinter import messagebox
 
 
 class Application(tk.Tk):
     def __init__(self):
         tk.Tk.__init__(self)
-        self.title("Detection falsification")
-        self.state("zoomed")
+        self.title("Detection de falsification")
+        #self.state("zoomed")
+        self.geometry("900x600")  
 
         # Créer la barre de navigation
         self.navigation_bar = ttk.Treeview(self)
@@ -64,19 +66,20 @@ class AccueilPage(tk.Frame):
         self.pack(fill="both", expand=True)
         
         self.label = tk.Label(self, text="LIEN :" , font=("arial" , 15 , "bold"))
-        self.label.grid(row=0, column=0, sticky=tk.E , pady=50)
+        self.label.grid(row=0, column=0, sticky=tk.E , pady=50, padx=20)
 
         self.entry = tk.Entry(self , font=("arial" , 15 , "bold"),border=3)
         self.entry.grid(row=0, column=1, sticky=tk.W+tk.E , padx=5)
         self.entry.bind("<Configure>", self.agrandir_entry)
 
         self.button = tk.Button(self, text="selectionner",padx=10, font=("arial" , 11 , "bold"),bg="green",command=self.select_pdf)
-        self.button.grid(row=0, column=2, sticky=tk.W)
+        self.button.grid(row=0, column=2, sticky=tk.W ,  padx=20)
         
+
         self.columnconfigure(0, weight=0)
         self.columnconfigure(1, weight=1)
         self.columnconfigure(2, weight=0)
-        
+
     def agrandir_entry(self, event):
             self.entry.config(width=(self.entry.winfo_width() + 1))
 
@@ -105,31 +108,43 @@ class AccueilPage(tk.Frame):
         pdf1 = PyPDF2.PdfReader(open(chemin_pdf1, 'rb'))
         pdf2 = PyPDF2.PdfReader(open(chemin_pdf2, 'rb'))
 
-        # Créer un nouveau fichier PDF
-        pdf_fusionne = PyPDF2.PdfMerger()
-        pdf_fusionne.append(pdf1)
-        pdf_fusionne.append(pdf2)
+        try:
+            # Créer un nouveau fichier PDF
+            pdf_fusionne = PyPDF2.PdfMerger()
+            pdf_fusionne.append(pdf1)
+            pdf_fusionne.append(pdf2)
 
-        # Enregistrer le fichier PDF fusionné
-        pdf_fusionne.write(chemin_sortie)
+            # Enregistrer le fichier PDF fusionné
+            pdf_fusionne.write(chemin_sortie)
+            response = True
 
-    def creer_qrcode_et_pdf(self,data, nom_fichier_pdf):
+        except Exception as e:
+            response = False
+
+        return response
+
+    def creer_qrcode_et_pdf(self,data, path_qrcode_pdf):
         # Créer le QR code
         qr = qrcode.QRCode(version=1, box_size=10, border=4)
         qr.add_data(data)
         qr.make(fit=True)
         qr_img = qr.make_image(fill_color="black", back_color="white")
 
+        # creer un dossier temporaire pour stocker le qrcode image
+        name = "Dossier_temporaire_qrcode_image"
+        path_qrcode_image = self.create_folder(name)
+
         # Enregistrer le QR code en tant qu'image temporaire
-        qr_img_path = "qr_code.png"
-        qr_img.save(qr_img_path)
+        qr_img_path = path_qrcode_image+"/"+"qr_code.png"
+        qrcode_image_path = self.format_the_path(qr_img_path)
+        qr_img.save(qrcode_image_path)
 
         # Dimensions de la page PDF
         page_width = 595  # Largeur en points (1 point = 1/72 pouces)
         page_height = 842  # Hauteur en points (1 point = 1/72 pouces)
 
         # Créer un fichier PDF
-        c = canvas.Canvas(nom_fichier_pdf, pagesize=(page_width, page_height))
+        c = canvas.Canvas(path_qrcode_pdf, pagesize=(page_width, page_height))
 
         # Calculer les coordonnées pour centrer l'image du QR code sur la page
         qr_img_width, qr_img_height = qr_img.size
@@ -172,7 +187,25 @@ class AccueilPage(tk.Frame):
                 print("le dossier créé avec succès dans le repertoir Document :", path_dossier_image_sans_Qrcode_formatted)
                 break
         return path_dossier_image_sans_Qrcode_formatted
+    
+    def get_document_link(self) :
+        documents_path = os.path.expanduser("~\Documents")
+        return documents_path
 
+    def format_the_path(self,path) :
+            path_formated = path.replace("\\", "/")
+            return path_formated
+    
+    def obtenir_date(self) :
+        heure = datetime.now()
+        # date_actuelle = datetime.date.today()   path_dossier_image_sans_Qrcode_formatted = path_dossier_image_sans_Qrcode.replace("\\", "/")
+        # heure_actuelle = heure.hour
+        # indice = date_actuelle+"_"+heure_actuelle
+        date_string = heure.strftime("%Y-%m-%d %H:%M:%S")
+
+        # Remplacement des caractères non autorisés
+        date_string = date_string.replace(':', '_')
+        return date_string
 
     def select_pdf(self):
         path_entre_pdf = filedialog.askopenfilename(filetypes=[("Fichiers PDF", "*.pdf")])
@@ -186,13 +219,32 @@ class AccueilPage(tk.Frame):
         data = json.dumps(data)
 
         print(hash)
-        path_qrcode_pdf = 'C:/Users/concepteur/Documents/qrcode_pdf.pdf'
-        lien_sortie_fusion = 'C:/Users/concepteur/Documents/fusion.pdf'
+
+        # creer un dossier temporaire pour stocker le qrcode
+        name = "Dossier_temporaire_qrcode_pdf"
+        path_qrcode_pdf = self.create_folder(name)
+        path_du_qrcode_pdf = path_qrcode_pdf+"/"+"qrcode.pdf"
+        path_qrcode_pdf = self.format_the_path(path_du_qrcode_pdf)
+        print("Le path temporaire du Qr code est : ", self.format_the_path(path_du_qrcode_pdf))
+
+        # Preparer le path de sortie du pdf finale
+        file_name = "PdfSecurisé"+"_"+self.obtenir_date()+".pdf"
+        document_link = self.get_document_link()
+        lien = document_link+"/"+file_name
+        lien_sortie_fusion= self.format_the_path(lien)
+        print("Le path du pdf finale est avec qrcode est : ",lien_sortie_fusion)
+
         self.creer_qrcode_et_pdf(data, path_qrcode_pdf)
-        self.fusionner_pdf(path_qrcode_pdf,path_entre_pdf,lien_sortie_fusion)
+        response = self.fusionner_pdf(path_qrcode_pdf,path_entre_pdf,lien_sortie_fusion)
 
         self.entry.delete(0, tk.END)  # Effacer le contenu précédent
         self.entry.insert(tk.END, path_entre_pdf)
+
+        if response == True : 
+            messagebox.showinfo("Succès", "L'opération a réussie avec succès : le document est securisé")
+            messagebox.showinfo("Lien de sortie", "Le lien du fichier securisé est:"+lien_sortie_fusion)
+        else :
+            messagebox.showinfo("Succès", "L'opération a echouée ! : Essayer une nouvelle fois")
 
 if __name__ == "__main__":
     app = Application()

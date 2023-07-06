@@ -1,39 +1,38 @@
-import qrcode
-from reportlab.pdfgen import canvas
+import tkinter as tk
+from tkinter import ttk
 
-def creer_qrcode_et_pdf(data, nom_fichier_pdf):
-    # Créer le QR code
-    qr = qrcode.QRCode(version=1, box_size=10, border=4)
-    qr.add_data(data)
-    qr.make(fit=True)
-    qr_img = qr.make_image(fill_color="black", back_color="white")
+# Fonction pour créer la page de chargement
+def create_loading_page():
+    # Création de la fenêtre
+    fenetre = tk.Toplevel()
+    fenetre.title("Loading Page")
+    fenetre.geometry("400x200")  # Ajustez la taille de la fenêtre selon vos besoins
 
-    # Enregistrer le QR code en tant qu'image temporaire
-    qr_img_path = "qr_code.png"
-    qr_img.save(qr_img_path)
+    # Création d'un widget Label pour afficher le texte du chargement
+    label_loading = tk.Label(fenetre, text="Chargement en cours...")
+    label_loading.pack(pady=20)
 
-    # Dimensions de la page PDF
-    page_width = 595  # Largeur en points (1 point = 1/72 pouces)
-    page_height = 842  # Hauteur en points (1 point = 1/72 pouces)
+    # Création d'un widget Progressbar pour l'indicateur de chargement animé
+    progress_bar = ttk.Progressbar(fenetre, mode="indeterminate")
+    progress_bar.pack(pady=10)
 
-    # Créer un fichier PDF
-    c = canvas.Canvas(nom_fichier_pdf, pagesize=(page_width, page_height))
+    # Lancement de l'animation de la Progressbar
+    progress_bar.start()
 
-    # Calculer les coordonnées pour centrer l'image du QR code sur la page
-    qr_img_width, qr_img_height = qr_img.size
-    x = (page_width - qr_img_width)
-    y = (page_height - qr_img_height)
+    # Lancement de la boucle principale de la fenêtre
+    fenetre.mainloop()
 
-    # Ajouter l'image du QR code à la page PDF
-    c.drawImage(qr_img_path, 200, 200)
+# Fonction pour gérer le clic sur le bouton
+def start_loading():
+    create_loading_page()
 
-    # Enregistrer le fichier PDF
-    c.save()
+# Création de la fenêtre principale
+fenetre_principale = tk.Tk()
+fenetre_principale.title("Exemple de chargement")
 
-    print("Le QR code a été créé et enregistré en tant que fichier PDF avec succès.")
+# Création du bouton
+bouton_loading = tk.Button(fenetre_principale, text="Démarrer le chargement", command=start_loading)
+bouton_loading.pack(pady=20)
 
-# Exemple d'utilisation
-data = "Hello, QR Code!"
-nom_fichier_pdf = 'C:/Users/concepteur/Documents/devoir_enonce.pdf'
-
-creer_qrcode_et_pdf(data, nom_fichier_pdf)
+# Lancement de la boucle principale de la fenêtre principale
+fenetre_principale.mainloop()

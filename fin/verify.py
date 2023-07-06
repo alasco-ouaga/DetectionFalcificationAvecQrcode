@@ -14,6 +14,8 @@ from PIL import Image
 import hashlib
 import PyPDF2
 from datetime import datetime
+from tkinter import messagebox
+
 
 class Application(tk.Tk):
     def __init__(self):
@@ -60,14 +62,14 @@ class AccueilPage(tk.Frame):
         self.pack(fill="both", expand=True)
         
         self.label = tk.Label(self, text="LIEN :" , font=("arial" , 15 , "bold"))
-        self.label.grid(row=0, column=0, sticky=tk.E , pady=50)
+        self.label.grid(row=0, column=0, sticky=tk.E , pady=50,padx=20)
 
         self.entry = tk.Entry(self , font=("arial" , 15 , "bold"),border=3)
         self.entry.grid(row=0, column=1, sticky=tk.W+tk.E , padx=5)
         self.entry.bind("<Configure>", self.agrandir_entry)
 
         self.button = tk.Button(self, text="selectionner",padx=10, font=("arial" , 11 , "bold"),bg="green",command=self.select_pdf)
-        self.button.grid(row=0, column=2, sticky=tk.W)
+        self.button.grid(row=0, column=2, sticky=tk.W,padx=20)
         
         self.columnconfigure(0, weight=0)
         self.columnconfigure(1, weight=1)
@@ -126,64 +128,87 @@ class AccueilPage(tk.Frame):
                 texte += page.extract_text()
 
         return texte
+    
+    def transform_premiere_page_en_image(self,path_fichier_pdf):
+        images = convert_from_path(path_fichier_pdf)
+        for index,image in enumerate(images):
+            # Obtenir le nom de fichier avec l'extension
+            image_name = f"image_{index}.jpg"
+            
+            # Chemin complet du fichier de destination
+            folder_name = "premiere_image"
+            folder_path = self.create_folder(folder_name)
 
-    def select_pdf(self):
-        path_entre_pdf = filedialog.askopenfilename(filetypes=[("Fichiers PDF", "*.pdf")])
-        text=self.extraire_texte_pdf(path_entre_pdf)
-        hash=self.hasher_texte(text)
-        print(hash)
+            # Lien de la premiere image
+            first_image_path = os.path.join(folder_path,image_name)
+            first_image_path_formated = first_image_path.replace("\\", "/")
+            
+            # Enregistrer l'image avec le QR code dans le dossier de destination
+            image.save(first_image_path)
+            break
         
-        #convertir toutes las pages du pdf en image et les plaser dans un dossier 
-        #le lien de chacune des images est gardé pour besoin ulterieur
-        images = convert_from_path(path_entre_pdf)
-        image = images[0]
-
-        # Exemple d'utilisation
-        nom_dossier = "first_image_with_qrcode"
-        folder_link=self.create_folder(nom_dossier)
-
-        # Obtenir le nom de fichier avec l'extension
-        date_aujourd_hui = datetime.today().date()
-        image_name = f"image_date_aujourd_hui.jpg"
-
-        # Chemin complet du fichier de destination
-        first_image_path = os.path.join(folder_link,image_name)
-
-        # Enregistrer l'image avec le QR code dans le dossier de destination
-        image.save(first_image_path)
-
-        # Rechercher les fichiers correspondant au motif dans le dossier
-        #motif = "*.jpg"
-        #image_path = glob.glob(f"{folder_link}/{motif}")
-        #image_path_formated = image_path.replace("\\", "/")
+        return first_image_path_formated
+    
+    def extraire_hash_dans_qrcode(self,first_image_path):
 
         # Charger l'image
         img = cv2.imread(first_image_path)
-    
+
         # Convertir l'image en échelle de gris
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
         # Définir le détecteur de codes QR
         qr_detector = cv2.QRCodeDetector()
 
-        # Détecter les codes QR dans l'image
-        get_qrcode = qr_detector.detectAndDecodeMulti(gray)
-        print(get_qrcode)
-
-        # Recuperer l'information enrgistrée dans la deuxieme ligne des informations contenues dans le qr code
-        # cette information est enregistre sous forme de tuple.
-        second_ligne = get_qrcode[1]
-        
-        # Extraire le dictionnaire dans le tuple
-        mon_dictionnaire =second_ligne[0]
-        
-        # Reformatter le dictionnaire pour avoir la varribale de type json
-        decoded_mon_dictionnaire = json.loads(mon_dictionnaire)
-        hash = decoded_mon_dictionnaire.get("hash")
-        print("le hash est  :",hash)
+        try:
+            # Détecter les codes QR dans l'image
+            get_qrcode = qr_detector.detectAndDecodeMulti(gray)
             
+            # Recuperer l'information enrgistrée dans la deuxieme ligne des informations contenues dans le qr code
+            # cette information est enregistre sous forme de tuple.
+            tuple = get_qrcode[1]
+            
+            # Extraire le dictionnaire dans le tuple
+            dictionnaire = tuple[0]
+            
+            # Reformatter le dictionnaire pour avoir la varribale de type json
+            decoded_mon_dictionnaire = json.loads(dictionnaire)
+            hash = decoded_mon_dictionnaire.get("hash")
+            return hash
+        except Exception as e:
+            messagebox.showinfo("Erreur rencontrée", "Echec : le document ne comporte pas de qrcode")
+
+    
+    def compare_deux_hash(self,hash1,hash2):
+        
+        if hash1 == hash2 :
+            return True
+        else :
+            return False
+        
+
+    def select_pdf(self):
+        path_entre_pdf = filedialog.askopenfilename(filetypes=[("Fichiers PDF", "*.pdf")])
+        text=self.extraire_texte_pdf(path_entre_pdf)
+        text_hash=self.hasher_texte(text)
+        #print(hash)
+        #print(path_entre_pdf)
+
+        first_image_path = self.transform_premiere_page_en_image(path_entre_pdf)
+        print(first_image_path)
+
+        qrcode_hash = self.extraire_hash_dans_qrcode(first_image_path)
+        print(text_hash)
+        print(qrcode_hash)
+
+        response = self.compare_deux_hash(text_hash,qrcode_hash)
         self.entry.delete(0, tk.END)  # Effacer le contenu précédent
         self.entry.insert(tk.END, path_entre_pdf)
+
+        if response == True :
+            messagebox.showinfo("Authentique", "Le document est authentique")
+        else :
+            messagebox.showinfo("Falsifié", "Le document n'est pas authentique (Falsifié)")
         
 if __name__ == "__main__":
     app = Application()
