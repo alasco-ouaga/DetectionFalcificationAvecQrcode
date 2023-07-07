@@ -5,6 +5,7 @@ from tkinter import *
 from tkinter import ttk
 from tkinter import filedialog
 from pdf2image import convert_from_path
+import shutil
 #from fpdf import FPDF
 import json
 #import glob
@@ -16,8 +17,9 @@ import qrcode
 from reportlab.pdfgen import canvas
 import PyPDF2
 from datetime import datetime
-from PIL import Image, ImageTk
+#from PIL import Image, ImageTk
 from tkinter import messagebox
+import send2trash
 
 
 class Application(tk.Tk):
@@ -47,7 +49,6 @@ class Application(tk.Tk):
     def show_selected_page(self, event):
         selected_item = self.navigation_bar.selection()
         page_id = self.navigation_bar.item(selected_item)["values"][0]
-        
         if page_id == "accueil_page":
             self.show_page(self.accueil_page)
         elif page_id == "enregistrer_page":
@@ -65,23 +66,26 @@ class AccueilPage(tk.Frame):
         tk.Frame.__init__(self, master,bg="#c3c3c3", highlightbackground="black", highlightthickness=1)  # Ajout du fond rouge au cadre principal
         self.pack(fill="both", expand=True)
         
-        self.label = tk.Label(self, text="LIEN :" , font=("arial" , 15 , "bold"))
+        self.label = tk.Label(self, text="LIEN :" , font=("Times New Roman" , 18 , "bold"))
         self.label.grid(row=0, column=0, sticky=tk.E , pady=50, padx=20)
 
-        self.entry = tk.Entry(self , font=("arial" , 15 , "bold"),border=3)
-        self.entry.grid(row=0, column=1, sticky=tk.W+tk.E , padx=5)
-        self.entry.bind("<Configure>", self.agrandir_entry)
+        self.link = tk.Entry(self , font=("Times New Roman" , 22),border=3)
+        self.link.grid(row=0, column=1, sticky=tk.W+tk.E , padx=5)
+        self.link.bind("<Configure>", self.agrandir_entry)
 
-        self.button = tk.Button(self, text="selectionner",padx=10, font=("arial" , 11 , "bold"),bg="green",command=self.select_pdf)
+        self.button = tk.Button(self, text="selectionner",padx=10, font=("arial" , 15 , "bold"),bg="green",command=self.select_pdf)
         self.button.grid(row=0, column=2, sticky=tk.W ,  padx=20)
         
+        self.message = tk.Text(self , height=10, font=("Times New Roman" , 25 ),border=3)
+        self.message.grid(row=1, column=1, sticky=tk.W+tk.E , padx=6, pady = 50 )
+        self.message.bind("<Configure>", self.agrandir_entry)
 
         self.columnconfigure(0, weight=0)
         self.columnconfigure(1, weight=1)
         self.columnconfigure(2, weight=0)
 
     def agrandir_entry(self, event):
-            self.entry.config(width=(self.entry.winfo_width() + 1))
+            self.link.config(width=(self.link.winfo_width() + 1))
 
     def hasher_texte(self,texte):
         # Convertir le texte en format binaire (UTF-8)
@@ -113,7 +117,6 @@ class AccueilPage(tk.Frame):
             pdf_fusionne = PyPDF2.PdfMerger()
             pdf_fusionne.append(pdf1)
             pdf_fusionne.append(pdf2)
-
             # Enregistrer le fichier PDF fusionné
             pdf_fusionne.write(chemin_sortie)
             response = True
@@ -133,6 +136,7 @@ class AccueilPage(tk.Frame):
         # creer un dossier temporaire pour stocker le qrcode image
         name = "Dossier_temporaire_qrcode_image"
         path_qrcode_image = self.create_folder(name)
+        delete_path = path_qrcode_image
 
         # Enregistrer le QR code en tant qu'image temporaire
         qr_img_path = path_qrcode_image+"/"+"qr_code.png"
@@ -156,6 +160,7 @@ class AccueilPage(tk.Frame):
 
         # Enregistrer le fichier PDF
         c.save()
+        shutil.rmtree(delete_path)
 
     #Fonction de creation d'un dossier
     def create_folder(self,name):
@@ -206,6 +211,15 @@ class AccueilPage(tk.Frame):
         # Remplacement des caractères non autorisés
         date_string = date_string.replace(':', '_')
         return date_string
+    
+    def action_message(self,response,lien_sortie_document_securisé):
+        if response == True : 
+            messagebox.showinfo("Succès", "L'opération a réussie avec succès : le document est securisé")
+            messagebox.showinfo("Lien de sortie", "Le lien:"+lien_sortie_document_securisé)
+            return True
+        else :
+            messagebox.showinfo("Succès", "L'opération a echouée ! : Essayer une nouvelle fois")
+            return False
 
     def select_pdf(self):
         path_entre_pdf = filedialog.askopenfilename(filetypes=[("Fichiers PDF", "*.pdf")])
@@ -223,6 +237,7 @@ class AccueilPage(tk.Frame):
         # creer un dossier temporaire pour stocker le qrcode
         name = "Dossier_temporaire_qrcode_pdf"
         path_qrcode_pdf = self.create_folder(name)
+        delete_path = path_qrcode_pdf
         path_du_qrcode_pdf = path_qrcode_pdf+"/"+"qrcode.pdf"
         path_qrcode_pdf = self.format_the_path(path_du_qrcode_pdf)
         print("Le path temporaire du Qr code est : ", self.format_the_path(path_du_qrcode_pdf))
@@ -237,14 +252,23 @@ class AccueilPage(tk.Frame):
         self.creer_qrcode_et_pdf(data, path_qrcode_pdf)
         response = self.fusionner_pdf(path_qrcode_pdf,path_entre_pdf,lien_sortie_fusion)
 
-        self.entry.delete(0, tk.END)  # Effacer le contenu précédent
-        self.entry.insert(tk.END, path_entre_pdf)
+        self.link.delete(0, tk.END)
+        self.link.insert(tk.END, path_entre_pdf)
 
-        if response == True : 
-            messagebox.showinfo("Succès", "L'opération a réussie avec succès : le document est securisé")
-            messagebox.showinfo("Lien de sortie", "Le lien du fichier securisé est:"+lien_sortie_fusion)
+        responses = self.action_message(response,lien_sortie_fusion)
+
+        if responses == True :
+            message ="L'opération a réussie avec succès : le document est securisé avec succès"
+            self.message.delete(tk.END)
+            self.message.insert(tk.END, message)
         else :
-            messagebox.showinfo("Succès", "L'opération a echouée ! : Essayer une nouvelle fois")
+            message ="L'opération a echouée : le document n'a pas été securisé"
+            self.message.delete(tk.END)
+            self.message.insert(tk.END, message)
+        
+        #shutil.rmtree(delete_path)
+        #send2trash.send2trash(delete_path)
+
 
 if __name__ == "__main__":
     app = Application()

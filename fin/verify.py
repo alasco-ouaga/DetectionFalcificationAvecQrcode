@@ -21,7 +21,7 @@ class Application(tk.Tk):
     def __init__(self):
         tk.Tk.__init__(self)
         self.title("Detection falsification")
-        self.state("zoomed")
+        self.geometry("900x600")
 
         # Créer la barre de navigation
         self.navigation_bar = ttk.Treeview(self)
@@ -61,15 +61,19 @@ class AccueilPage(tk.Frame):
         tk.Frame.__init__(self, master,bg="#c3c3c3", highlightbackground="black", highlightthickness=1)  # Ajout du fond rouge au cadre principal
         self.pack(fill="both", expand=True)
         
-        self.label = tk.Label(self, text="LIEN :" , font=("arial" , 15 , "bold"))
+        self.label = tk.Label(self, text="LIEN :" , font=("arial" , 18 , "bold"))
         self.label.grid(row=0, column=0, sticky=tk.E , pady=50,padx=20)
 
-        self.entry = tk.Entry(self , font=("arial" , 15 , "bold"),border=3)
+        self.entry = tk.Entry(self , font=("arial" , 22),border=3)
         self.entry.grid(row=0, column=1, sticky=tk.W+tk.E , padx=5)
         self.entry.bind("<Configure>", self.agrandir_entry)
 
-        self.button = tk.Button(self, text="selectionner",padx=10, font=("arial" , 11 , "bold"),bg="green",command=self.select_pdf)
+        self.button = tk.Button(self, text="selectionner",padx=10, font=("arial" , 15 , "bold"),bg="green",command=self.select_pdf)
         self.button.grid(row=0, column=2, sticky=tk.W,padx=20)
+
+        self.message = tk.Text(self , height=10 , font=("arial" , 25 ),border=3)
+        self.message.grid(row=1, column=1, sticky=tk.W+tk.E , padx=6, pady = 50 )
+        self.message.bind("<Configure>", self.agrandir_entry)
         
         self.columnconfigure(0, weight=0)
         self.columnconfigure(1, weight=1)
@@ -180,7 +184,6 @@ class AccueilPage(tk.Frame):
 
     
     def compare_deux_hash(self,hash1,hash2):
-        
         if hash1 == hash2 :
             return True
         else :
@@ -202,13 +205,19 @@ class AccueilPage(tk.Frame):
         print(qrcode_hash)
 
         response = self.compare_deux_hash(text_hash,qrcode_hash)
-        self.entry.delete(0, tk.END)  # Effacer le contenu précédent
+        self.entry.delete(0, tk.END)
         self.entry.insert(tk.END, path_entre_pdf)
 
         if response == True :
             messagebox.showinfo("Authentique", "Le document est authentique")
+            message ="L'opération a réussie avec succès : le document est authentique (Il n'est pas falsifié)"
+            self.message.delete(tk.END)
+            self.message.insert(tk.END, message)
         else :
             messagebox.showinfo("Falsifié", "Le document n'est pas authentique (Falsifié)")
+            message ="L'opération a reussie avec succès : le document n'est pas authentique (Il a été falsifié)"
+            self.message.delete(tk.END)
+            self.message.insert(tk.END, message)
         
 if __name__ == "__main__":
     app = Application()
