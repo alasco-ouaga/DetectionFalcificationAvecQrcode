@@ -49,10 +49,12 @@ class Application(tk.Tk):
     def show_selected_page(self, event):
         selected_item = self.navigation_bar.selection()
         page_id = self.navigation_bar.item(selected_item)["values"][0]
-        if page_id == "accueil_page":
-            self.show_page(self.accueil_page)
-        elif page_id == "enregistrer_page":
-            self.show_page(self.enregistrer_page)
+        self.show_page(self.accueil_page)
+
+        # if page_id == "accueil_page":
+        #     self.show_page(self.accueil_page)
+        # elif page_id == "enregistrer_page":
+        #     self.show_page(self.enregistrer_page)
 
     def show_page(self, page):
         if hasattr(self, "current_page"):
@@ -76,8 +78,8 @@ class AccueilPage(tk.Frame):
         self.button = tk.Button(self, text="selectionner",padx=10, font=("arial" , 15 , "bold"),bg="green",command=self.select_pdf)
         self.button.grid(row=0, column=2, sticky=tk.W ,  padx=20)
         
-        self.message = tk.Text(self , height=10, font=("Times New Roman" , 25 ),border=3)
-        self.message.grid(row=1, column=1, sticky=tk.W+tk.E , padx=6, pady = 50 )
+        self.message = tk.Text(self , height=10, font=("Times New Roman" , 19 ),border=3)
+        self.message.grid(row=1, column=1, sticky=tk.W+tk.E , pady = 50 )
         self.message.bind("<Configure>", self.agrandir_entry)
 
         self.columnconfigure(0, weight=0)
@@ -85,7 +87,7 @@ class AccueilPage(tk.Frame):
         self.columnconfigure(2, weight=0)
 
     def agrandir_entry(self, event):
-            self.link.config(width=(self.link.winfo_width() + 1))
+        self.link.config(width=(self.link.winfo_width() + 1))
 
     def hasher_texte(self,texte):
         # Convertir le texte en format binaire (UTF-8)
@@ -107,6 +109,28 @@ class AccueilPage(tk.Frame):
 
         return texte
     
+    def fermer_fichier (self,path): 
+        fichier = open(path, "r")
+        # Effectuez des opérations sur le fichier...
+        fichier.close()
+
+    def supprimer_un_dossier(self , lien_fichier):
+
+        # Vérifier si le fichier existe
+        if os.path.exists(lien_fichier):
+            # Obtenir le chemin du dossier contenant le fichier
+            dossier = os.path.dirname(lien_fichier)
+
+            # Supprimer le fichier
+            os.remove(lien_fichier)
+
+            # Supprimer le dossier (si vide)
+            if not os.listdir(dossier):
+                os.rmdir(dossier)
+                return True
+        else:
+            return False
+    
     def fusionner_pdf(self,chemin_pdf1, chemin_pdf2, chemin_sortie):
         # Charger les fichiers PDF
         pdf1 = PyPDF2.PdfReader(open(chemin_pdf1, 'rb'))
@@ -124,6 +148,9 @@ class AccueilPage(tk.Frame):
         except Exception as e:
             response = False
 
+        self.fermer_fichier(chemin_pdf1)
+        self.fermer_fichier(chemin_pdf2)
+        self.supprimer_un_dossier(chemin_pdf1)
         return response
 
     def creer_qrcode_et_pdf(self,data, path_qrcode_pdf):
@@ -259,11 +286,11 @@ class AccueilPage(tk.Frame):
 
         if responses == True :
             message ="L'opération a réussie avec succès : le document est securisé avec succès"
-            self.message.delete(tk.END)
+            self.message.delete('1.0', tk.END)
             self.message.insert(tk.END, message)
         else :
             message ="L'opération a echouée : le document n'a pas été securisé"
-            self.message.delete(tk.END)
+            self.message.delete('1.0', tk.END)
             self.message.insert(tk.END, message)
         
         #shutil.rmtree(delete_path)

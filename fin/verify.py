@@ -7,6 +7,7 @@ from tkinter import filedialog
 from pdf2image import convert_from_path
 from fpdf import FPDF
 import json
+import shutil
 import glob
 import cv2
 import pytesseract
@@ -43,11 +44,12 @@ class Application(tk.Tk):
     def show_selected_page(self, event):
         selected_item = self.navigation_bar.selection()
         page_id = self.navigation_bar.item(selected_item)["values"][0]
+        self.show_page(self.accueil_page)
         
-        if page_id == "accueil_page":
-            self.show_page(self.accueil_page)
-        elif page_id == "enregistrer_page":
-            self.show_page(self.enregistrer_page)
+        # if page_id == "accueil_page":
+        #     self.show_page(self.accueil_page)
+        # elif page_id == "enregistrer_page":
+        #     self.show_page(self.enregistrer_page)
 
     def show_page(self, page):
         if hasattr(self, "current_page"):
@@ -64,15 +66,15 @@ class AccueilPage(tk.Frame):
         self.label = tk.Label(self, text="LIEN :" , font=("arial" , 18 , "bold"))
         self.label.grid(row=0, column=0, sticky=tk.E , pady=50,padx=20)
 
-        self.entry = tk.Entry(self , font=("arial" , 22),border=3)
-        self.entry.grid(row=0, column=1, sticky=tk.W+tk.E , padx=5)
-        self.entry.bind("<Configure>", self.agrandir_entry)
+        self.Entrer = tk.Entry(self , font=("arial" , 22),border=3)
+        self.Entrer.grid(row=0, column=1, sticky=tk.W+tk.E , padx=5)
+        self.Entrer.bind("<Configure>", self.agrandir_entry)
 
         self.button = tk.Button(self, text="selectionner",padx=10, font=("arial" , 15 , "bold"),bg="green",command=self.select_pdf)
         self.button.grid(row=0, column=2, sticky=tk.W,padx=20)
 
-        self.message = tk.Text(self , height=10 , font=("arial" , 25 ),border=3)
-        self.message.grid(row=1, column=1, sticky=tk.W+tk.E , padx=6, pady = 50 )
+        self.message = tk.Text(self , height=10 , font=("arial" , 18 ),border=3)
+        self.message.grid(row=1, column=1, sticky=tk.W+tk.E , pady = 50 )
         self.message.bind("<Configure>", self.agrandir_entry)
         
         self.columnconfigure(0, weight=0)
@@ -80,7 +82,7 @@ class AccueilPage(tk.Frame):
         self.columnconfigure(2, weight=0)
         
     def agrandir_entry(self, event):
-            self.entry.config(width=(self.entry.winfo_width() + 1))
+            self.Entrer.config(width=(self.Entrer.winfo_width() + 1))
     
     #Fonction de creation d'un dossier
     def create_folder(self,name):
@@ -150,8 +152,28 @@ class AccueilPage(tk.Frame):
             # Enregistrer l'image avec le QR code dans le dossier de destination
             image.save(first_image_path)
             break
-        
+
+        # Suppression du dossier qui a ete creer 
+        #delete_link = folder_path.replace("\\", "/")
+        #shutil.rmtree(delete_link)
         return first_image_path_formated
+    
+    def supprimer_un_dossier(self , lien_fichier):
+
+        # Vérifier si le fichier existe
+        if os.path.exists(lien_fichier):
+            # Obtenir le chemin du dossier contenant le fichier
+            dossier = os.path.dirname(lien_fichier)
+
+            # Supprimer le fichier
+            os.remove(lien_fichier)
+
+            # Supprimer le dossier (si vide)
+            if not os.listdir(dossier):
+                os.rmdir(dossier)
+                return True
+        else:
+            return False
     
     def extraire_hash_dans_qrcode(self,first_image_path):
 
@@ -178,9 +200,14 @@ class AccueilPage(tk.Frame):
             # Reformatter le dictionnaire pour avoir la varribale de type json
             decoded_mon_dictionnaire = json.loads(dictionnaire)
             hash = decoded_mon_dictionnaire.get("hash")
+
+            #suppression du fichier et du dossier creer pour stocke l'image du qrcode
+            response = self.supprimer_un_dossier(first_image_path)
+            print("le resultat de la suppression est : ",response)
             return hash
         except Exception as e:
             messagebox.showinfo("Erreur rencontrée", "Echec : le document ne comporte pas de qrcode")
+            self.supprimer_un_dossier(first_image_path)
 
     
     def compare_deux_hash(self,hash1,hash2):
@@ -205,18 +232,20 @@ class AccueilPage(tk.Frame):
         print(qrcode_hash)
 
         response = self.compare_deux_hash(text_hash,qrcode_hash)
-        self.entry.delete(0, tk.END)
-        self.entry.insert(tk.END, path_entre_pdf)
+        self.Entrer.delete(tk.END)
+        self.Entrer.insert(tk.END, path_entre_pdf)
 
         if response == True :
             messagebox.showinfo("Authentique", "Le document est authentique")
             message ="L'opération a réussie avec succès : le document est authentique (Il n'est pas falsifié)"
-            self.message.delete(tk.END)
+            self.message.delete('1.0', tk.END)
+            self.message.insert(tk.END, "")
             self.message.insert(tk.END, message)
         else :
             messagebox.showinfo("Falsifié", "Le document n'est pas authentique (Falsifié)")
             message ="L'opération a reussie avec succès : le document n'est pas authentique (Il a été falsifié)"
-            self.message.delete(tk.END)
+            self.message.delete('1.0', tk.END)
+            self.message.insert(tk.END, "")
             self.message.insert(tk.END, message)
         
 if __name__ == "__main__":
